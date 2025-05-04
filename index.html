@@ -347,6 +347,9 @@
     let loggedIn = false;
     let userName = '';
 
+    // Replace with your Google Apps Script web app URL
+    const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/YourUniqueID/exec';
+
     function showLoginForm() {
       document.getElementById('loginForm').style.display = 'block';
       document.getElementById('mainContent').classList.add('blur');
@@ -357,32 +360,41 @@
       const password = document.getElementById('password').value;
 
       showLoading(true);
-      google.script.run
-        .withSuccessHandler((result) => {
-          showLoading(false);
-          const loginData = result.loginData;
-          // Check if the provided username and password match any entry
-          const user = loginData.find(
-            entry => entry.username === username && entry.password === password
-          );
+      fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=getLoginData`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      .then(response => response.json())
+      .then(result => {
+        showLoading(false);
+        if (result.error) {
+          showError('Failed to fetch login data: ' + result.error);
+          return;
+        }
 
-          if (user) {
-            loggedIn = true;
-            userName = user.name; // Use the name from the sheet
-            document.getElementById('loginForm').style.display = 'none';
-            document.getElementById('mainContent').classList.remove('blur');
-            document.getElementById('greeting').style.display = 'block';
-            document.getElementById('userName').textContent = userName;
-            loadQuestions();
-          } else {
-            showError('Invalid username or password');
-          }
-        })
-        .withFailureHandler((error) => {
-          showLoading(false);
-          showError('Failed to fetch login data: ' + error.message);
-        })
-        .getLoginData();
+        const loginData = result.loginData;
+        const user = loginData.find(
+          entry => entry.username === username && entry.password === password
+        );
+
+        if (user) {
+          loggedIn = true;
+          userName = user.name;
+          document.getElementById('loginForm').style.display = 'none';
+          document.getElementById('mainContent').classList.remove('blur');
+          document.getElementById('greeting').style.display = 'block';
+          document.getElementById('userName').textContent = userName;
+          loadQuestions();
+        } else {
+          showError('Invalid username or password');
+        }
+      })
+      .catch(error => {
+        showLoading(false);
+        showError('Failed to fetch login data: ' + error.message);
+      });
     }
 
     function loadQuestions() {
@@ -391,26 +403,36 @@
         return;
       }
       showLoading(true);
-      google.script.run
-        .withSuccessHandler((result) => {
-          showLoading(false);
-          allQuestions = result.questions.map((q, idx) => ({ ...q, id: `q_${idx}` }));
-          allHeaders = result.headers;
-          visibleColumns = new Set(allHeaders);
-          uniqueSources = [...new Set(allQuestions.map(q => q.source).filter(s => s))].sort();
-          populateTypeFilter(result.sheetNames);
-          populateGradeFilter();
-          populateSourceFilter();
-          initHeadersControl();
-          searchQuestions();
-          checkboxStates.clear();
-          showNotification('Welcome to the Question Bank Search!', 5000);
-        })
-        .withFailureHandler((error) => {
-          showLoading(false);
-          showError('Failed to load questions: ' + error.message);
-        })
-        .getQuestions();
+      fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=getQuestions`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      .then(response => response.json())
+      .then(result => {
+        showLoading(false);
+        if (result.error) {
+          showError('Failed to load questions: ' + result.error);
+          return;
+        }
+
+        allQuestions = result.questions.map((q, idx) => ({ ...q, id: `q_${idx}` }));
+        allHeaders = result.headers;
+        visibleColumns = new Set(allHeaders);
+        uniqueSources = [...new Set(allQuestions.map(q => q.source).filter(s => s))].sort();
+        populateTypeFilter(result.sheetNames);
+        populateGradeFilter();
+        populateSourceFilter();
+        initHeadersControl();
+        searchQuestions();
+        checkboxStates.clear();
+        showNotification('Welcome to the Question Bank Search!', 5000);
+      })
+      .catch(error => {
+        showLoading(false);
+        showError('Failed to load questions: ' + error.message);
+      });
     }
 
     function populateTypeFilter(sheetNames) {
@@ -845,7 +867,7 @@
         email: formData.get('email'),
         question: formData.get('question')
       };
-      fetch('https://script.google.com/macros/s/YourUniqueID/exec', {
+      fetch(GOOGLE_APPS_SCRIPT_URL, {
         method: 'POST',
         body: JSON.stringify(data),
         headers: {
