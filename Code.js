@@ -1,10 +1,52 @@
-// Existing doGet() remains unchanged
-function doGet() {
-  return HtmlService.createHtmlOutputFromFile('index')
-    .setTitle('Science_Question_Banks');
+function doGet(e) {
+  try {
+    // Handle different actions based on a query parameter
+    const action = e.parameter.action;
+    let result;
+
+    if (action === "getLoginData") {
+      result = getLoginData();
+    } else if (action === "getQuestions") {
+      result = getQuestions();
+    } else {
+      throw new Error("Invalid action");
+    }
+
+    return ContentService.createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({ error: error.message }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
-// New function to fetch login data from "• Login" sheet
+// Enable CORS for cross-origin requests
+function doPost(e) {
+  try {
+    const action = e.parameter.action;
+    let result;
+
+    if (action === "getLoginData") {
+      result = getLoginData();
+    } else if (action === "getQuestions") {
+      result = getQuestions();
+    } else {
+      throw new Error("Invalid action");
+    }
+
+    return ContentService.createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON)
+      .setHeader("Access-Control-Allow-Origin", "*")
+      .setHeader("Access-Control-Allow-Methods", "GET, POST")
+      .setHeader("Access-Control-Allow-Headers", "Content-Type");
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({ error: error.message }))
+      .setMimeType(ContentService.MimeType.JSON)
+      .setHeader("Access-Control-Allow-Origin", "*");
+  }
+}
+
+// Existing getLoginData function
 function getLoginData() {
   try {
     const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
@@ -22,15 +64,13 @@ function getLoginData() {
     const headers = data[0].map(h => h.toString().toLowerCase().trim());
     const loginData = [];
 
-    // Ensure required headers exist
     if (!headers.includes('name') || !headers.includes('username') || !headers.includes('password')) {
       throw new Error('Login sheet must contain "Name", "Username", and "Password" headers.');
     }
 
-    // Process each row starting from the second row (index 1)
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
-      if (row.every(cell => !cell)) continue; // Skip empty rows
+      if (row.every(cell => !cell)) continue;
 
       const userObj = {};
       headers.forEach((header, idx) => {
@@ -50,7 +90,7 @@ function getLoginData() {
   }
 }
 
-// Existing getQuestions() function (unchanged for now, but we’ll call it after login)
+// Existing getQuestions function
 function getQuestions() {
   try {
     const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
